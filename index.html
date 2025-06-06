@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 目标检测展示 (最终版)</title>
+    <title>AI 目标检测展示 (最终修复版)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
@@ -129,14 +129,12 @@
     </footer>
 
     <script type="module">
-      // ‼️‼️‼️ 关键修复 ‼️‼️‼️
-      // 在这里加上了 async 关键字
       window.addEventListener('DOMContentLoaded', async () => {
-        // 使用 try-catch 结构以便在导入失败时给出提示
         try {
-          const { Client } = await import("https://cdn.jsdelivr.net/npm/@gradio/client@0.1.4/dist/index.min.js");
+          // 变化 1: 导入的不再是 Client，而是 connect 函数
+          // 我们也使用了更新、更稳定的库版本
+          const { connect } = await import("https://cdn.jsdelivr.net/npm/@gradio/client@0.17.0/dist/index.min.js");
 
-          // --- 获取页面元素 ---
           const imageInput = document.getElementById('image-input');
           const submitBtn = document.getElementById('submit-btn');
           const statusDiv = document.getElementById('status');
@@ -148,8 +146,12 @@
           const themeToggle = document.getElementById('theme-toggle');
 
           let selectedFile = null;
-
-          // --- 文件处理逻辑 ---
+          
+          // 变化 2: 在页面加载时就建立连接，而不是每次点击都重连
+          statusDiv.innerHTML = '<span>正在初始化与 AI 模型的连接...</span>';
+          const app = await connect("bob966/my-yolo5-demo");
+          statusDiv.innerHTML = '<span>连接成功！请上传图片。</span>';
+          
           function handleFileSelect(file) {
               if (file && file.type.startsWith('image/')) {
                   selectedFile = file;
@@ -157,6 +159,7 @@
                   inputBox.style.display = 'block';
                   inputImagePreview.src = URL.createObjectURL(file);
                   outputBox.style.display = 'none';
+                  statusDiv.textContent = '图片已就绪，请点击开始检测。';
               }
           }
           
@@ -168,19 +171,19 @@
               handleFileSelect(e.dataTransfer.files[0]);
           });
           
-          // --- API 调用逻辑 ---
+          // 变化 3: API 调用逻辑更新为使用 app.predict
           submitBtn.addEventListener('click', async () => {
               if (!selectedFile) {
                   alert('请先选择一张图片！');
                   return;
               }
               submitBtn.disabled = true;
-              statusDiv.innerHTML = '<div class="spinner"></div><span>正在连接 AI 模型并上传图片...</span>';
+              statusDiv.innerHTML = '<div class="spinner"></div><span>图片上传中，AI 模型正在处理...</span>';
               outputBox.style.display = 'none';
 
               try {
-                  const client = await Client.connect("bob966/my-yolo5-demo");
-                  const result = await client.predict("/predict", { 
+                  // 直接使用已经建立连接的 app 对象来预测
+                  const result = await app.predict("/predict", { 
                       input_image: selectedFile, 
                   });
 
@@ -196,7 +199,7 @@
               }
           });
 
-          // --- 深色模式切换 ---
+          // --- 深色模式切换 (无变化) ---
           const currentTheme = localStorage.getItem('theme');
           if (currentTheme === 'dark') {
               document.body.classList.add('dark-mode');
@@ -210,8 +213,9 @@
           });
 
         } catch (e) {
-            console.error("加载 Gradio 客户端或初始化脚本时出错:", e);
-            alert("加载页面组件失败，请检查浏览器控制台(F12)的错误信息。");
+            console.error("初始化应用时发生严重错误:", e);
+            statusDiv.textContent = `页面初始化失败: ${e.message}`;
+            alert("加载页面组件失败，请检查浏览器控制台(F12)的错误信息。可能是网络问题或浏览器不兼容。");
         }
       });
     </script>
