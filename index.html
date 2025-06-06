@@ -130,28 +130,31 @@
 
     <script type="module">
       window.addEventListener('DOMContentLoaded', async () => {
+        // 将所有变量定义移到 try-catch 外部，但在 DOMContentLoaded 内部
+        const imageInput = document.getElementById('image-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const statusDiv = document.getElementById('status');
+        const inputImagePreview = document.getElementById('input-image-preview');
+        const outputImage = document.getElementById('output-image');
+        const inputBox = document.getElementById('input-box');
+        const outputBox = document.getElementById('output-box');
+        const uploadText = document.getElementById('upload-text');
+        const themeToggle = document.getElementById('theme-toggle');
+        let selectedFile = null;
+        let app; // 将 app 客户端实例也定义在外部
+
         try {
-          // 变化 1: 导入的不再是 Client，而是 connect 函数
-          // 我们也使用了更新、更稳定的库版本
-          const { connect } = await import("https://cdn.jsdelivr.net/npm/@gradio/client@0.17.0/dist/index.min.js");
+          // ‼️‼️‼️ 关键修复 1: 导入默认的 Client 对象 ‼️‼️‼️
+          // 我们不再用 { connect }，而是直接导入默认模块 Client
+          const { default: Client } = await import("https://cdn.jsdelivr.net/npm/@gradio/client@0.1.4/dist/index.min.js");
 
-          const imageInput = document.getElementById('image-input');
-          const submitBtn = document.getElementById('submit-btn');
-          const statusDiv = document.getElementById('status');
-          const inputImagePreview = document.getElementById('input-image-preview');
-          const outputImage = document.getElementById('output-image');
-          const inputBox = document.getElementById('input-box');
-          const outputBox = document.getElementById('output-box');
-          const uploadText = document.getElementById('upload-text');
-          const themeToggle = document.getElementById('theme-toggle');
-
-          let selectedFile = null;
-          
-          // 变化 2: 在页面加载时就建立连接，而不是每次点击都重连
           statusDiv.innerHTML = '<span>正在初始化与 AI 模型的连接...</span>';
-          const app = await connect("bob966/my-yolo5-demo");
+          
+          // ‼️‼️‼️ 关键修复 2: 使用 Client.connect() 方法 ‼️‼️‼️
+          app = await Client.connect("bob966/my-yolo5-demo");
           statusDiv.innerHTML = '<span>连接成功！请上传图片。</span>';
           
+          // 文件选择逻辑 (无变化)
           function handleFileSelect(file) {
               if (file && file.type.startsWith('image/')) {
                   selectedFile = file;
@@ -171,10 +174,14 @@
               handleFileSelect(e.dataTransfer.files[0]);
           });
           
-          // 变化 3: API 调用逻辑更新为使用 app.predict
+          // API 调用逻辑 (无变化，但现在能正确工作了)
           submitBtn.addEventListener('click', async () => {
               if (!selectedFile) {
                   alert('请先选择一张图片！');
+                  return;
+              }
+              if (!app) {
+                  alert('应用连接尚未建立，请稍候。');
                   return;
               }
               submitBtn.disabled = true;
@@ -182,7 +189,6 @@
               outputBox.style.display = 'none';
 
               try {
-                  // 直接使用已经建立连接的 app 对象来预测
                   const result = await app.predict("/predict", { 
                       input_image: selectedFile, 
                   });
@@ -199,7 +205,7 @@
               }
           });
 
-          // --- 深色模式切换 (无变化) ---
+          // 深色模式切换 (无变化)
           const currentTheme = localStorage.getItem('theme');
           if (currentTheme === 'dark') {
               document.body.classList.add('dark-mode');
@@ -214,7 +220,11 @@
 
         } catch (e) {
             console.error("初始化应用时发生严重错误:", e);
-            statusDiv.textContent = `页面初始化失败: ${e.message}`;
+            // ‼️‼️‼️ 关键修复 3: 在 catch 块中安全地访问 statusDiv ‼️‼️‼️
+            const statusDivForError = document.getElementById('status');
+            if(statusDivForError) {
+                statusDivForError.textContent = `页面初始化失败: ${e.message}`;
+            }
             alert("加载页面组件失败，请检查浏览器控制台(F12)的错误信息。可能是网络问题或浏览器不兼容。");
         }
       });
