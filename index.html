@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 目标检测展示 (Gradio Client 最终修复版)</title>
+    <title>AI 目标检测展示 (最终版)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
@@ -129,9 +129,9 @@
     </footer>
 
     <script type="module">
-      // 确保在整个页面加载完毕后才执行脚本
-      window.addEventListener('DOMContentLoaded', () => {
-        // 从 CDN 导入 Gradio 客户端库
+      // ‼️‼️‼️ 关键修复 ‼️‼️‼️
+      // 在这里加上了 async 关键字
+      window.addEventListener('DOMContentLoaded', async () => {
         // 使用 try-catch 结构以便在导入失败时给出提示
         try {
           const { Client } = await import("https://cdn.jsdelivr.net/npm/@gradio/client@0.1.4/dist/index.min.js");
