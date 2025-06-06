@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 目标检测展示 (Gradio Client 版)</title>
+    <title>AI 目标检测展示 (Gradio Client 最终修复版)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
@@ -129,87 +129,91 @@
     </footer>
 
     <script type="module">
-        // 变化 1: 从 CDN 导入 Gradio 客户端库
-        import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client@0.1.4/dist/index.min.js";
+      // 确保在整个页面加载完毕后才执行脚本
+      window.addEventListener('DOMContentLoaded', () => {
+        // 从 CDN 导入 Gradio 客户端库
+        // 使用 try-catch 结构以便在导入失败时给出提示
+        try {
+          const { Client } = await import("https://cdn.jsdelivr.net/npm/@gradio/client@0.1.4/dist/index.min.js");
 
-        // --- 获取页面元素 ---
-        const imageInput = document.getElementById('image-input');
-        const submitBtn = document.getElementById('submit-btn');
-        const statusDiv = document.getElementById('status');
-        const inputImagePreview = document.getElementById('input-image-preview');
-        const outputImage = document.getElementById('output-image');
-        const inputBox = document.getElementById('input-box');
-        const outputBox = document.getElementById('output-box');
-        const uploadText = document.getElementById('upload-text');
-        const themeToggle = document.getElementById('theme-toggle');
+          // --- 获取页面元素 ---
+          const imageInput = document.getElementById('image-input');
+          const submitBtn = document.getElementById('submit-btn');
+          const statusDiv = document.getElementById('status');
+          const inputImagePreview = document.getElementById('input-image-preview');
+          const outputImage = document.getElementById('output-image');
+          const inputBox = document.getElementById('input-box');
+          const outputBox = document.getElementById('output-box');
+          const uploadText = document.getElementById('upload-text');
+          const themeToggle = document.getElementById('theme-toggle');
 
-        let selectedFile = null;
+          let selectedFile = null;
 
-        // --- 文件处理逻辑 (无变化) ---
-        function handleFileSelect(file) {
-            if (file && file.type.startsWith('image/')) {
-                selectedFile = file;
-                uploadText.textContent = `已选择: ${file.name}`;
-                inputBox.style.display = 'block';
-                inputImagePreview.src = URL.createObjectURL(file);
-                outputBox.style.display = 'none';
-            }
+          // --- 文件处理逻辑 ---
+          function handleFileSelect(file) {
+              if (file && file.type.startsWith('image/')) {
+                  selectedFile = file;
+                  uploadText.textContent = `已选择: ${file.name}`;
+                  inputBox.style.display = 'block';
+                  inputImagePreview.src = URL.createObjectURL(file);
+                  outputBox.style.display = 'none';
+              }
+          }
+          
+          imageInput.addEventListener('change', (event) => handleFileSelect(event.target.files[0]));
+          const uploadArea = document.getElementById('upload-label');
+          uploadArea.addEventListener('dragover', (e) => e.preventDefault());
+          uploadArea.addEventListener('drop', (e) => {
+              e.preventDefault();
+              handleFileSelect(e.dataTransfer.files[0]);
+          });
+          
+          // --- API 调用逻辑 ---
+          submitBtn.addEventListener('click', async () => {
+              if (!selectedFile) {
+                  alert('请先选择一张图片！');
+                  return;
+              }
+              submitBtn.disabled = true;
+              statusDiv.innerHTML = '<div class="spinner"></div><span>正在连接 AI 模型并上传图片...</span>';
+              outputBox.style.display = 'none';
+
+              try {
+                  const client = await Client.connect("bob966/my-yolo5-demo");
+                  const result = await client.predict("/predict", { 
+                      input_image: selectedFile, 
+                  });
+
+                  outputImage.src = result.data[0];
+                  outputBox.style.display = 'block';
+                  statusDiv.textContent = '检测完成！';
+
+              } catch (error) {
+                  console.error("API 调用时发生错误:", error);
+                  statusDiv.textContent = `检测失败: ${error.message}`;
+              } finally {
+                  submitBtn.disabled = false;
+              }
+          });
+
+          // --- 深色模式切换 ---
+          const currentTheme = localStorage.getItem('theme');
+          if (currentTheme === 'dark') {
+              document.body.classList.add('dark-mode');
+              themeToggle.textContent = '🌙';
+          }
+          themeToggle.addEventListener('click', () => {
+              document.body.classList.toggle('dark-mode');
+              let theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+              themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
+              localStorage.setItem('theme', theme);
+          });
+
+        } catch (e) {
+            console.error("加载 Gradio 客户端或初始化脚本时出错:", e);
+            alert("加载页面组件失败，请检查浏览器控制台(F12)的错误信息。");
         }
-        
-        imageInput.addEventListener('change', (event) => handleFileSelect(event.target.files[0]));
-        const uploadArea = document.getElementById('upload-label');
-        uploadArea.addEventListener('dragover', (e) => e.preventDefault());
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            handleFileSelect(e.dataTransfer.files[0]);
-        });
-        
-        // --- ‼️ 变化 2: API 调用逻辑已重写 ---
-        submitBtn.addEventListener('click', async () => {
-            if (!selectedFile) {
-                alert('请先选择一张图片！');
-                return;
-            }
-            submitBtn.disabled = true;
-            statusDiv.innerHTML = '<div class="spinner"></div><span>正在连接 AI 模型并上传图片...</span>';
-            outputBox.style.display = 'none';
-
-            try {
-                // 连接到您的 Gradio 应用
-                const client = await Client.connect("bob966/my-yolo5-demo");
-                
-                // 调用 predict 函数，直接传入文件对象 (File object)
-                // 不再需要手动转 Base64！
-                const result = await client.predict("/predict", { 
-                    input_image: selectedFile, 
-                });
-
-                // 新的客户端返回的数据格式可能略有不同，通常结果在 result.data[0]
-                // 返回的直接是可用的图片数据 (通常是 Base64 格式的 URL)
-                outputImage.src = result.data[0];
-                outputBox.style.display = 'block';
-                statusDiv.textContent = '检测完成！';
-
-            } catch (error) {
-                console.error("API 调用时发生错误:", error);
-                statusDiv.textContent = `检测失败: ${error.message}`;
-            } finally {
-                submitBtn.disabled = false;
-            }
-        });
-
-        // --- 深色模式切换 (无变化) ---
-        const currentTheme = localStorage.getItem('theme');
-        if (currentTheme === 'dark') {
-            document.body.classList.add('dark-mode');
-            themeToggle.textContent = '🌙';
-        }
-        themeToggle.addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
-            let theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
-            themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
-            localStorage.setItem('theme', theme);
-        });
+      });
     </script>
 </body>
 </html>
