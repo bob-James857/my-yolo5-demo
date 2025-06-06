@@ -76,8 +76,12 @@
             padding: 2rem 2.5rem;
             border-radius: 16px;
             box-shadow: var(--card-shadow);
-            text-align: center;
             transition: background-color 0.3s;
+            
+            /* --- ‼️ 这是关键的修复 ‼️ --- */
+            display: flex;
+            flex-direction: column; /* 强制所有子元素垂直排列 */
+            align-items: center;   /* 让所有子元素水平居中 */
         }
         
         /* --- 3. 组件样式 (按钮, 输入, 卡片等) --- */
@@ -91,12 +95,14 @@
         }
 
         .upload-area {
+            width: 100%; /* 确保上传区域也占满宽度 */
             border: 2px dashed var(--border-color);
             border-radius: 10px;
             padding: 2rem;
             margin-bottom: 1.5rem;
             cursor: pointer;
             transition: border-color 0.3s, background-color 0.3s;
+            text-align: center; /* 确保内部文本居中 */
         }
         .upload-area:hover {
             border-color: var(--primary-color);
@@ -160,6 +166,7 @@
         }
 
         .image-container {
+            width: 100%; /* 确保图片容器也占满宽度 */
             margin-top: 2rem;
             display: flex;
             justify-content: space-between;
@@ -234,7 +241,7 @@
     </footer>
 
     <script>
-        // --- 1. 获取页面元素 ---
+        // --- JavaScript部分没有改动，和之前一样 ---
         const imageInput = document.getElementById('image-input');
         const submitBtn = document.getElementById('submit-btn');
         const statusDiv = document.getElementById('status');
@@ -247,12 +254,10 @@
 
         let selectedFile = null;
 
-        // --- 2. 文件选择逻辑 ---
         imageInput.addEventListener('change', (event) => {
             handleFileSelect(event.target.files[0]);
         });
         
-        // --- 拖拽上传逻辑 ---
         const uploadArea = document.getElementById('upload-label');
         uploadArea.addEventListener('dragover', (e) => e.preventDefault());
         uploadArea.addEventListener('drop', (e) => {
@@ -270,7 +275,6 @@
             }
         }
         
-        // --- 3. 按钮点击与 API 调用 ---
         submitBtn.addEventListener('click', async () => {
             if (!selectedFile) {
                 alert('请先选择一张图片！');
@@ -312,7 +316,6 @@
             };
         });
 
-        // --- 4. 深色模式切换逻辑 ---
         const currentTheme = localStorage.getItem('theme');
         if (currentTheme === 'dark') {
             document.body.classList.add('dark-mode');
