@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 目标检测展示 (最终修复版)</title>
+    <title>AI 目标检测展示 (Fetch 最终稳定版)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
@@ -128,9 +128,10 @@
         <p>由 Hugging Face & GitHub Pages 强力驱动</p>
     </footer>
 
-    <script type="module">
-      window.addEventListener('DOMContentLoaded', async () => {
-        // 将所有变量定义移到 try-catch 外部，但在 DOMContentLoaded 内部
+    <script>
+      // 确保在整个页面加载完毕后才执行脚本
+      window.addEventListener('DOMContentLoaded', () => {
+        // --- 获取页面元素 ---
         const imageInput = document.getElementById('image-input');
         const submitBtn = document.getElementById('submit-btn');
         const statusDiv = document.getElementById('status');
@@ -140,93 +141,93 @@
         const outputBox = document.getElementById('output-box');
         const uploadText = document.getElementById('upload-text');
         const themeToggle = document.getElementById('theme-toggle');
+        
+        const API_URL = "https://bob966-my-yolo5-demo.hf.space/run/predict";
         let selectedFile = null;
-        let app; // 将 app 客户端实例也定义在外部
 
-        try {
-          // ‼️‼️‼️ 关键修复 1: 导入默认的 Client 对象 ‼️‼️‼️
-          // 我们不再用 { connect }，而是直接导入默认模块 Client
-          const { default: Client } = await import("https://cdn.jsdelivr.net/npm/@gradio/client@0.1.4/dist/index.min.js");
-
-          statusDiv.innerHTML = '<span>正在初始化与 AI 模型的连接...</span>';
-          
-          // ‼️‼️‼️ 关键修复 2: 使用 Client.connect() 方法 ‼️‼️‼️
-          app = await Client.connect("bob966/my-yolo5-demo");
-          statusDiv.innerHTML = '<span>连接成功！请上传图片。</span>';
-          
-          // 文件选择逻辑 (无变化)
-          function handleFileSelect(file) {
-              if (file && file.type.startsWith('image/')) {
-                  selectedFile = file;
-                  uploadText.textContent = `已选择: ${file.name}`;
-                  inputBox.style.display = 'block';
-                  inputImagePreview.src = URL.createObjectURL(file);
-                  outputBox.style.display = 'none';
-                  statusDiv.textContent = '图片已就绪，请点击开始检测。';
-              }
-          }
-          
-          imageInput.addEventListener('change', (event) => handleFileSelect(event.target.files[0]));
-          const uploadArea = document.getElementById('upload-label');
-          uploadArea.addEventListener('dragover', (e) => e.preventDefault());
-          uploadArea.addEventListener('drop', (e) => {
-              e.preventDefault();
-              handleFileSelect(e.dataTransfer.files[0]);
-          });
-          
-          // API 调用逻辑 (无变化，但现在能正确工作了)
-          submitBtn.addEventListener('click', async () => {
-              if (!selectedFile) {
-                  alert('请先选择一张图片！');
-                  return;
-              }
-              if (!app) {
-                  alert('应用连接尚未建立，请稍候。');
-                  return;
-              }
-              submitBtn.disabled = true;
-              statusDiv.innerHTML = '<div class="spinner"></div><span>图片上传中，AI 模型正在处理...</span>';
-              outputBox.style.display = 'none';
-
-              try {
-                  const result = await app.predict("/predict", { 
-                      input_image: selectedFile, 
-                  });
-
-                  outputImage.src = result.data[0];
-                  outputBox.style.display = 'block';
-                  statusDiv.textContent = '检测完成！';
-
-              } catch (error) {
-                  console.error("API 调用时发生错误:", error);
-                  statusDiv.textContent = `检测失败: ${error.message}`;
-              } finally {
-                  submitBtn.disabled = false;
-              }
-          });
-
-          // 深色模式切换 (无变化)
-          const currentTheme = localStorage.getItem('theme');
-          if (currentTheme === 'dark') {
-              document.body.classList.add('dark-mode');
-              themeToggle.textContent = '🌙';
-          }
-          themeToggle.addEventListener('click', () => {
-              document.body.classList.toggle('dark-mode');
-              let theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
-              themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
-              localStorage.setItem('theme', theme);
-          });
-
-        } catch (e) {
-            console.error("初始化应用时发生严重错误:", e);
-            // ‼️‼️‼️ 关键修复 3: 在 catch 块中安全地访问 statusDiv ‼️‼️‼️
-            const statusDivForError = document.getElementById('status');
-            if(statusDivForError) {
-                statusDivForError.textContent = `页面初始化失败: ${e.message}`;
+        // --- 文件选择逻辑 ---
+        function handleFileSelect(file) {
+            if (file && file.type.startsWith('image/')) {
+                selectedFile = file;
+                uploadText.textContent = `已选择: ${file.name}`;
+                inputBox.style.display = 'block';
+                inputImagePreview.src = URL.createObjectURL(file);
+                outputBox.style.display = 'none';
             }
-            alert("加载页面组件失败，请检查浏览器控制台(F12)的错误信息。可能是网络问题或浏览器不兼容。");
         }
+
+        imageInput.addEventListener('change', (event) => handleFileSelect(event.target.files[0]));
+        const uploadArea = document.getElementById('upload-label');
+        uploadArea.addEventListener('dragover', (e) => e.preventDefault());
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            handleFileSelect(e.dataTransfer.files[0]);
+        });
+
+        // --- API 调用逻辑 (使用 Fetch 和 Base64) ---
+        submitBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                alert('请先选择一张图片！');
+                return;
+            }
+            submitBtn.disabled = true;
+            statusDiv.innerHTML = '<div class="spinner"></div><span>正在上传并检测中，请稍候...</span>';
+            outputBox.style.display = 'none';
+
+            // 1. 将图片文件转换为 Base64 编码的字符串
+            const base64Image = await toBase64(selectedFile);
+
+            try {
+                // 2. 使用 Fetch 发送请求
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        data: [base64Image]
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API 请求失败，状态码: ${response.status}`);
+                }
+
+                const jsonResponse = await response.json();
+                
+                // 3. 显示返回的结果
+                outputImage.src = jsonResponse.data[0];
+                outputBox.style.display = 'block';
+                statusDiv.textContent = '检测完成！';
+
+            } catch (error) {
+                console.error("发生错误:", error);
+                statusDiv.textContent = `检测失败: ${error.message}`;
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        // --- 将文件转为 Base64 的辅助函数 ---
+        function toBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // --- 深色模式切换 ---
+        const currentTheme = localStorage.getItem('theme');
+        if (currentTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+            themeToggle.textContent = '🌙';
+        }
+        themeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            let theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+            themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
+            localStorage.setItem('theme', theme);
+        });
       });
     </script>
 </body>
